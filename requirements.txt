@@ -1,0 +1,8 @@
+Django
+djangorestframework
+gunicorn
+psycopg2-binary
+django-tables2 
+django-filter
+django-simple-history
+pymorphy2

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    {% load extra_filters %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NetScope{% endblock %}</title>
+
+    <!-- DaisyUI + Tailwind -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5.0.0/themes.css" rel="stylesheet" type="text/css" />
+
+    <!-- Font Awesome -->
+    <script src="https://kit.fontawesome.com/ad3dc1969c.js" crossorigin="anonymous"></script>
+
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem("theme") || "light";
+            document.documentElement.setAttribute("data-theme", savedTheme);
+        })();
+    </script>
+
+    <style>
+      
+      /* По умолчанию — полный режим */
+      .compact-actions .btn {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+        font-size: 0.875rem;
+      }
+      
+      /* Компактный режим (добавляется JS'ом к body или таблице) */
+      .table-compact .compact-actions .btn {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+        font-size: 0.75rem;
+      }
+      
+      .table-compact .compact-actions .action-label {
+        display: none !important;
+      }
+      </style>
+  
+</head>
+<body>
+<div class="drawer lg:drawer-end">
+  <input id="drawer-toggle" type="checkbox" class="drawer-toggle" />
+
+  <div class="drawer-content flex flex-col min-h-screen">
+    <!-- Navbar -->
+    <nav class="navbar bg-base-100 px-4 sticky top-0 z-50">
+      <div class="flex-none lg:hidden">
+        <label for="drawer-toggle" class="btn btn-square btn-ghost">
+          <i class="fa-solid fa-bars text-lg"></i>
+        </label>
+      </div>
+      <div class="flex-1">
+        <a href="/" class="btn btn-ghost text-xl font-bold">NetScope</a>
+      </div>
+      <div class="hidden lg:flex items-center">
+        <ul class="menu menu-horizontal px-1">
+          {% for item in menu %}
+            {% if item.visible %}
+              {% if item.children %}
+                <li tabindex="0">
+                  <details>
+                    <summary>
+                      {% if item.icon %}<i class="{{ item.icon }} mr-2"></i>{% endif %}
+                      {{ item.label }}
+                    </summary>
+                    <ul class="p-2 bg-base-100 z-50">
+                      {% for child in item.children %}
+                        {% if child.visible %}
+                          {% with child_url=child.url %}
+                          <li>
+                            <a href="{{ child_url }}"
+                               class="{% if request.path|slice:':{{ child_url|length }}' == child_url %}active font-bold{% endif %}">
+                              {{ child.label }}
+                            </a>
+                          </li>
+                          {% endwith %}
+                        {% endif %}
+                      {% endfor %}
+                    </ul>
+                  </details>
+                </li>
+              {% else %}
+                {% with item_url=item.url %}
+                <li>
+                  <a href="{{ item_url }}"
+                     class="{% if request.path|slice:':{{ item_url|length }}' == item_url %}active font-bold{% endif %}">
+                    {% if item.icon %}<i class="{{ item.icon }} mr-2"></i>{% endif %}
+                    {{ item.label }}
+                  </a>
+                </li>
+                {% endwith %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+
+      <!-- Theme switch + logout -->
+      <div class="flex gap-2 ml-4">
+        <!-- Theme Dropdown -->
+        <div class="dropdown dropdown-end" title="Нажмите, чтобы сменить тему">
+          <div tabindex="0" role="button" class="btn btn-sm btn-ghost flex items-center">
+            <div id="current-theme-icon"
+            class="bg-base-100 grid grid-cols-2 gap-0.5 p-0.5 rounded shadow mr-1 scale-90">
+              <div class="bg-base-content w-2 h-2 rounded-full"></div>
+              <div class="bg-primary size-2 rounded-full"></div>
+              <div class="bg-secondary size-2 rounded-full"></div>
+              <div class="bg-accent size-2 rounded-full"></div>
+            </div>
+            <span id="current-theme" class="font-bold"></span>
+          </div>
+          <div class="dropdown-content mt-2 bg-base-200 rounded-box shadow p-2 w-56 max-h-96 overflow-y-auto">
+            <ul class="menu">
+              {% with "light,dark,cupcake,bumblebee,emerald,corporate,synthwave,retro,cyberpunk,valentine,halloween,garden,forest,aqua,lofi,pastel,fantasy,wireframe,black,luxury,dracula,cmyk,autumn,business,acid,lemonade,night,coffee,winter,dim,nord,sunset,caramellatte,abyss,silk"|cut:" " as themes_str %}
+              {% for theme in themes_str|split:"," %}
+                <li>
+                  <button onclick="setTheme('{{ theme }}')">
+                    <div data-theme="{{ theme }}" class="bg-base-100 grid grid-cols-2 gap-0.5 p-1 rounded">
+                      <div class="bg-base-content size-3 rounded-full"></div>
+                      <div class="bg-primary size-3 rounded-full"></div>
+                      <div class="bg-secondary size-3 rounded-full"></div>
+                      <div class="bg-accent size-3 rounded-full"></div>
+                    </div>
+                    <span class="capitalize ml-2">{{ theme }}</span>
+                  </button>
+                </li>
+              {% endfor %}
+              {% endwith %}
+            </ul>
+          </div>
+        </div>
+
+        <!-- Logout -->
+        <form action="{% url 'users:logout' %}" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </form>
+      </div>
+    </nav>
+
+    <!-- Content -->
+    <main class="flex-1 p-6 overflow-y-auto">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <!-- Drawer for mobile -->
+  <div class="drawer-side lg:hidden z-50">
+    <label for="drawer-toggle" class="drawer-overlay"></label>
+    <aside class="menu p-4 w-80 min-h-full bg-base-200 text-base-content">
+      <ul>
+        {% for item in menu %}
+          {% if item.visible %}
+            {% if item.children %}
+              <li>
+                <details>
+                  <summary>
+                    {% if item.icon %}<i class="{{ item.icon }} mr-2"></i>{% endif %}
+                    {{ item.label }}
+                  </summary>
+                  <ul>
+                    {% for child in item.children %}
+                      {% if child.visible %}
+                        {% with child_url=child.url %}
+                        <li>
+                          <a href="{{ child_url }}"
+                             onclick="document.getElementById('drawer-toggle').checked = false;"
+                             class="{% if request.path|slice:':{{ child_url|length }}' == child_url %}active font-bold{% endif %}">
+                            {{ child.label }}
+                          </a>
+                        </li>
+                        {% endwith %}
+                      {% endif %}
+                    {% endfor %}
+                  </ul>
+                </details>
+              </li>
+            {% else %}
+              {% with item_url=item.url %}
+              <li>
+                <a href="{{ item_url }}"
+                   onclick="document.getElementById('drawer-toggle').checked = false;"
+                   class="{% if request.path|slice:':{{ item_url|length }}' == item_url %}active font-bold{% endif %}">
+                  {% if item.icon %}<i class="{{ item.icon }} mr-2"></i>{% endif %}
+                  {{ item.label }}
+                </a>
+              </li>
+              {% endwith %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+      </ul>
+    </aside>
+  </div>
+</div>
+
+<!-- Theme switch logic -->
+<script defer>
+  document.addEventListener("DOMContentLoaded", function () {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    applyTheme(savedTheme);
+  });
+
+  function setTheme(theme) {
+    localStorage.setItem("theme", theme);
+    applyTheme(theme);
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    document.getElementById("current-theme").innerText = theme.charAt(0).toUpperCase() + theme.slice(1);
+
+    // Обновляем иконку темы
+    const iconHtml = `
+      <div id="current-theme-icon" data-theme="${theme}" class="bg-base-100 grid grid-cols-2 gap-0.5 p-1 rounded shadow mr-2">
+        <div class="bg-base-content size-3 rounded-full"></div>
+        <div class="bg-primary size-3 rounded-full"></div>
+        <div class="bg-secondary size-3 rounded-full"></div>
+        <div class="bg-accent size-3 rounded-full"></div>
+      </div>
+    `;
+    document.getElementById("current-theme-icon").outerHTML = iconHtml;
+  }
+</script>
+</body>
+</html>

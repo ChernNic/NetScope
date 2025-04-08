@@ -1,0 +1,25 @@
+{% with page_param=table.prefixed_page_field %}
+<div class="join flex justify-center mt-4">
+  {% if table.page.has_previous %}
+    <a href="{% querystring page_param='1' %}" class="btn btn-sm join-item">
+      « Первая
+    </a>
+    <a href="{% querystring page_param=table.page.previous_page_number %}" class="btn btn-sm join-item">
+      ‹
+    </a>
+  {% endif %}
+
+  <span class="btn btn-sm btn-disabled join-item">
+    Стр. {{ table.page.number }} из {{ table.paginator.num_pages }}
+  </span>
+
+  {% if table.page.has_next %}
+    <a href="{% querystring page_param=table.page.next_page_number %}" class="btn btn-sm join-item">
+      ›
+    </a>
+    <a href="{% querystring page_param=table.paginator.num_pages %}" class="btn btn-sm join-item">
+      Последняя »
+    </a>
+  {% endif %}
+</div>
+{% endwith %}

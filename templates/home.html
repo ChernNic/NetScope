@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Главная | NetScope{% endblock %}
+{% block page_title %}Добро пожаловать в NetScope{% endblock %}
+
+{% block content %}
+  <div class="prose max-w-2xl">
+    <h2 class="text-2xl font-bold">Система NetScope</h2>
+    <p>
+      NetScope — это платформа для управления и мониторинга сетевой инфраструктуры:
+    </p>
+    <ul class="list-disc list-inside">
+      <li>Учёт и инвентаризация сетевых устройств</li>
+      <li>Мониторинг доступности и статусов</li>
+      <li>Визуализация топологии сети</li>
+      <li>IPAM: управление адресами, VLAN, VRF</li>
+      <li>Автоматическое сканирование сети</li>
+    </ul>
+    <p class="mt-4">
+      Используйте меню слева для перехода к нужному разделу.
+    </p>
+  </div>
+{% endblock %}

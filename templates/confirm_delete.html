@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-4">
+  <h2 class="text-xl font-semibold mb-4">Удаление</h2>
+  <p>Вы уверены, что хотите удалить <strong>{{ object }}</strong>?</p>
+  <form method="post">
+    {% csrf_token %}
+    <div class="mt-6 join">
+      <button type="submit" class="btn join-item btn-error">
+        Удалить
+      </button>
+      <a href="javascript:history.back()" class="btn join-item btn-outline">
+        Отмена
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

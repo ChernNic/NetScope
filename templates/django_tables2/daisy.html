@@ -1,0 +1,81 @@
+{% load django_tables2 %}
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // Применяем компактный режим
+    const compact = localStorage.getItem("table:compact") === "true";
+    const table = document.querySelector("table");
+    if (compact && table) {
+      table.classList.remove("table-sm");
+      table.classList.add("table-xs");
+    }
+
+    // Генерация sort-ссылок вручную
+    const url = new URL(window.location.href);
+    const params = url.searchParams;
+
+    document.querySelectorAll("th[data-sort-field]").forEach((th) => {
+      const field = th.dataset.sortField;
+      const current = params.get("sort");
+      let nextSort = field;
+
+      if (current === field) {
+        nextSort = `-${field}`;
+      } else if (current === `-${field}`) {
+        nextSort = field;
+      }
+
+      const sortUrl = new URL(window.location.href);
+      sortUrl.searchParams.set("sort", nextSort);
+      th.querySelector("a").href = sortUrl.toString();
+    });
+  });
+</script>
+
+<div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
+  <table class="{{ table.attrs.class }}">
+    <thead>
+      <tr>
+        {% for column in table.columns %}
+          <th {{ column.attrs.th.as_html }} {% if column.orderable %}data-sort-field="{{ column.name }}"{% endif %}>
+            {% if column.orderable %}
+              <a href="{{ column.sort_url|default:'#' }}" class="flex items-center gap-1 group hover:underline">
+                {{ column.header }}
+                {% with column.name as field %}
+                  {% if table.order_by.0 == field %}
+                    <i class="fas fa-arrow-up text-xs text-primary"></i>
+                  {% elif table.order_by.0 == "-"|add:field %}
+                    <i class="fas fa-arrow-down text-xs text-primary"></i>
+                  {% else %}
+                    <i class="fas fa-sort text-xs text-base-300 group-hover:text-base-content"></i>
+                  {% endif %}
+                {% endwith %}
+              </a>
+            {% else %}
+              {{ column.header }}
+            {% endif %}
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in table.page.object_list %}
+        <tr {{ row.attrs.as_html }} class="hover relative z-[1] overflow-visible">
+          {% for column, cell in row.items %}
+            <td {{ column.attrs.td.as_html }} class="whitespace-nowrap align-top">
+              {{ cell }}
+            </td>
+          {% endfor %}
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="{{ table.columns|length }}" class="text-center italic text-sm">
+            Нет данных для отображения.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include "django_tables2/pagination.html" %}

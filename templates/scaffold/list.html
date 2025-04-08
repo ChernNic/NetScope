@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% load render_table from django_tables2 %}
+
+{% block title %}{{ model_verbose_name_plural|capfirst }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 px-6">
+
+  <h1 class="text-3xl font-bold flex items-center gap-2">
+    <i class="{{ model_icon }}"></i> {{ model_verbose_name_plural|capfirst }}
+  </h1>
+
+  <!-- Tabs -->
+  <div class="tabs tabs-lift">
+    <!-- Таблица -->
+    <input type="radio" name="view_tabs" class="tab" aria-label="Таблица" checked />
+    <div class="tab-content bg-base-100 border border-base-300 p-4 space-y-6">
+
+      <form method="get">
+        {{ filter.render_as_grid }}
+      </form>
+
+      <form method="post" class="space-y-4" action="?{{ request.GET.urlencode }}">
+        {% for key, value in request.GET.items %}
+          <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endfor %}
+        {% csrf_token %}
+
+        <!-- Кнопки -->
+        <div class="flex justify-end items-end">
+          <div class="join">
+            <button type="submit" name="delete" class="btn btn-error btn-sm join-item">
+              <i class="fas fa-trash mr-1"></i> Удалить выбранные
+            </button>
+            <a href="{{ add_url }}" class="btn btn-primary btn-sm join-item">
+              <i class="fas fa-plus mr-1"></i> Добавить
+            </a>
+          </div>
+        </div>
+
+        <!-- Таблица -->
+        <div id="{{ table_id }}">
+          {% render_table table %}
+        </div>
+        
+      </form>
+    </div>
+
+    <!-- Вкладка "Настройки" -->
+    <input type="radio" name="view_tabs" class="tab" aria-label="Настройки">
+    <div class="tab-content bg-base-100 border border-base-300 p-4 rounded-box space-y-6">
+      <h2 class="font-bold text-lg">Настройки таблицы</h2>
+
+      <!-- Режим отображения -->
+      <div>
+        <label class="label mb-2">
+          <span class="label-text">Режим таблицы</span>
+        </label>
+        <select id="table-mode" class="select select-bordered w-full max-w-xs">
+          <option value="full">Расширенный</option>
+          <option value="compact">Компактный</option>
+        </select>
+      </div>
+
+      <!-- Отображаемые колонки -->
+      <div>
+        <h3 class="font-semibold mb-2">Выберите колонки для отображения</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {% for column in table.columns %}
+            {% if column.name != "actions" and column.name != "select" %}
+              <label class="cursor-pointer label gap-2">
+                <input type="checkbox" class="checkbox checkbox-sm toggle-column" data-column="{{ forloop.counter0 }}" checked />
+                <span class="label-text">{{ column.header }}</span>
+              </label>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- Настройка фильтрации -->
+      <h2 class="font-bold text-lg mt-15">Настройки фильтра</h2>
+      <div>
+        <h3 class="font-semibold mb-2">Выберите поля фильтра для отображения</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {% for field in filter.form.visible_fields %}
+            <label class="cursor-pointer label gap-2">
+              <input type="checkbox"
+                    class="checkbox checkbox-sm toggle-filter-field"
+                    data-field="{{ field.name }}"
+                    checked />
+              <span class="label-text">{{ field.label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Вкладка "История изменений" -->
+    <input type="radio" name="view_tabs" class="tab" aria-label="История">
+    <div class="tab-content bg-base-100 border border-base-300 p-4 space-y-6" id="history-tab">
+      <h2 class="font-bold text-lg">История изменений</h2>
+      {% if history_enabled %}
+        <div id="history-table">
+          {% render_table history_table %}
+        </div>
+      {% else %}
+        <p class="text-gray-500">Для этой модели история не подключена.</p>
+      {% endif %}
+</div>
+
+    
+  </div>
+</div>
+
+<!-- JS -->
+<script>
+const STORAGE_KEY_COLUMNS = "visible_columns_{{ table_id }}";
+const FILTER_STORAGE_KEY = "visible_filter_fields_{{ table_id }}";
+const STORAGE_KEY_MODE = "table_mode_{{ table_id }}";
+
+
+  function applyColumnPreferences() {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY_COLUMNS) || "[]");
+    document.querySelectorAll(".toggle-column").forEach((checkbox, idx) => {
+      const visible = stored.length ? stored.includes(idx) : true;
+      checkbox.checked = visible;
+      const colIndex = idx + 1;
+      const display = visible ? "" : "none";
+      document.querySelectorAll(`table td:nth-child(${colIndex}), table th:nth-child(${colIndex})`)
+        .forEach(el => el.style.display = display);
+    });
+  }
+
+  function saveColumnPreferences() {
+    const selected = [];
+    document.querySelectorAll(".toggle-column").forEach((checkbox, idx) => {
+      if (checkbox.checked) selected.push(idx);
+    });
+    localStorage.setItem(STORAGE_KEY_COLUMNS, JSON.stringify(selected));
+  }
+
+
+  function applyFilterPreferences() {
+    const stored = JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY) || "[]");
+    document.querySelectorAll(".filter-field").forEach(el => {
+      const field = el.dataset.filterField;
+      const visible = stored.length ? stored.includes(field) : true;
+      el.style.display = visible ? "" : "none";
+    });
+    document.querySelectorAll(".toggle-filter-field").forEach(cb => {
+      const field = cb.dataset.field;
+      cb.checked = stored.length ? stored.includes(field) : true;
+    });
+  }
+
+  function saveFilterPreferences() {
+    const selected = [];
+    document.querySelectorAll(".toggle-filter-field").forEach(cb => {
+      if (cb.checked) selected.push(cb.dataset.field);
+    });
+    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selected));
+  }
+
+
+  function applyMode(mode) {
+  const table = document.querySelector("table");
+  table.classList.remove("table-sm", "table-compact", "text-sm", "leading-tight");
+
+  if (mode === "compact") {
+    table.classList.add("table-sm", "table-compact", "text-sm", "leading-tight");
+  }
+
+  localStorage.setItem(STORAGE_KEY_MODE, mode);
+}
+
+
+  document.addEventListener("DOMContentLoaded", function () {
+    applyColumnPreferences();
+    document.querySelectorAll(".toggle-column").forEach(checkbox => {
+      checkbox.addEventListener("change", () => {
+        saveColumnPreferences();
+        applyColumnPreferences();
+      });
+    });
+
+    applyFilterPreferences();
+    document.querySelectorAll(".toggle-filter-field").forEach(cb => {
+      cb.addEventListener("change", () => {
+        saveFilterPreferences();
+        applyFilterPreferences();
+      });
+    });
+
+    const modeSelect = document.getElementById("table-mode");
+    const savedMode = localStorage.getItem(STORAGE_KEY_MODE) || "full";
+    modeSelect.value = savedMode;
+    applyMode(savedMode);
+    modeSelect.addEventListener("change", () => applyMode(modeSelect.value));
+
+    
+  });
+  
+</script>
+{% endblock %}
