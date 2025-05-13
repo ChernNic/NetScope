@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Иконки ролей{% endblock %}
+
+{% block content %}
+<div class="container mx-auto max-w-5xl px-4">
+
+  <h1 class="text-2xl font-bold mb-6 flex items-center gap-4">
+    Иконки ролей
+
+    <!-- поиск -->
+    <input id="search-input" type="text" placeholder="Поиск…"
+           class="input input-bordered w-60 ml-auto"/>
+
+    <!-- загрузка новой иконки -->
+    <label for="upload-icon"
+           class="btn btn-primary btn-sm flex gap-2 tooltip"
+           data-tip="Загрузить иконку">
+      <i class="fa-solid fa-upload"></i><span>Загрузить</span>
+      <span id="upload-spinner" class="loading loading-spinner loading-xs hidden"></span>
+    </label>
+    <input id="upload-icon" type="file" name="file"
+           accept=".png,.svg,.webp,.eps" class="hidden"/>
+  </h1>
+
+  <ul id="icon-list" class="divide-y divide-base-300">
+    {% for icon in icons %}
+      <li class="flex items-center justify-between gap-4 p-4" data-row data-icon-id="{{ icon.id }}">
+        <!-- превью -->
+        <img src="{% static 'icons/roles/'|add:icon.file_name %}"
+             alt="{{ icon.file_name }}" class="w-10 h-10 object-contain"/>
+
+        <!-- имя файла -->
+        <span class="font-mono text-sm truncate flex-1 file-name">
+          {{ icon.file_name }}
+        </span>
+
+        <!-- роли -->
+        <div class="flex flex-wrap gap-2 role-container mr-4">
+          {% for role in icon.roles.all %}
+            <span class="badge badge-outline flex items-center gap-1"
+                  data-role-id="{{ role.id }}">
+              {{ role.name }}
+              <i class="fa-solid fa-xmark text-xs cursor-pointer remove-role-btn"
+                 data-icon-id="{{ icon.id }}" data-role-id="{{ role.id }}"
+                 title="Убрать роль"></i>
+            </span>
+          {% empty %}
+            <span class="text-xs opacity-50 no-roles">нет ролей</span>
+          {% endfor %}
+        </div>
+
+        <!-- привязать роль -->
+        <div class="tooltip {% if not available_roles %}hidden{% endif %}" data-tip="Привязать роль">
+          <button class="btn btn-sm btn-square btn-primary attach-role-btn"
+                  data-icon-id="{{ icon.id }}">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+
+
+        <!-- удалить иконку -->
+        <div class="tooltip ml-2" data-tip="Удалить иконку">
+          <button class="btn btn-sm btn-square btn-error delete-icon-btn"
+                  data-icon-id="{{ icon.id }}">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </li>
+    {% empty %}
+      <li class="p-8 text-center text-base-content/70">Нет иконок</li>
+    {% endfor %}
+  </ul>
+
+</div>  {# /container #}
+
+<!--‑‑‑ модалка привязки роли ‑‑‑-->
+<input type="checkbox" id="attachRoleModal" class="modal-toggle"/>
+<div class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Привязать роль к иконке</h3>
+    <form id="attach-role-form" class="space-y-4">
+      <input type="hidden" name="icon_id" id="form-icon-id"/>
+      <select id="role-select" name="role_id"
+              class="select select-bordered w-full">
+        {% for role in available_roles %}
+          <option value="{{ role.id }}">{{ role.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="modal-action">
+        <button type="button" class="btn" onclick="closeAttachModal()">Отмена</button>
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!--‑‑‑ модалка подтверждения удаления ‑‑‑-->
+<input type="checkbox" id="confirmDeleteModal" class="modal-toggle"/>
+<div class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Удалить иконку?</h3>
+    <p>Файл и все привязки будут удалены безвозвратно.</p>
+    <div class="modal-action">
+      <label for="confirmDeleteModal" class="btn">Отмена</label>
+      <button id="confirm-delete-btn" class="btn btn-error">Удалить</button>
+    </div>
+  </div>
+</div>
+
+<!--‑‑‑ модалка ошибок ‑‑‑-->
+<input type="checkbox" id="errorModal" class="modal-toggle"/>
+<div class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4 text-error">Ошибка</h3>
+    <p id="error-text" class="whitespace-pre-wrap"></p>
+    <div class="modal-action">
+      <label for="errorModal" class="btn btn-primary">OK</label>
+    </div>
+  </div>
+</div>
+
+<script>
+  console.log("JS loaded");
+
+/*‑‑‑ helpers ‑‑‑*/
+function csrftoken(){const m=document.cookie.match(/csrftoken=([^;]+)/);return m?m[1]:"";}
+function closeAttachModal(){document.getElementById('attachRoleModal').checked=false;}
+function showError(msg){
+  document.getElementById('error-text').textContent=msg;
+  document.getElementById('errorModal').checked=true;
+}
+const url=window.location.href;
+
+/*‑‑‑ поиск ‑‑‑*/
+document.getElementById('search-input').addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase();
+  document.querySelectorAll('#icon-list [data-row]').forEach(li=>{
+    const text=[...li.querySelectorAll('.file-name,.badge')].map(n=>n.textContent).join(' ').toLowerCase();
+    li.style.display=text.includes(q)?'flex':'none';
+  });
+});
+
+/*‑‑‑ загрузка новой иконки ‑‑‑*/
+document.getElementById('upload-icon').addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const spin=document.getElementById('upload-spinner'); spin.classList.remove('hidden');
+  const fd=new FormData(); fd.append('file',file);
+  fetch(url,{method:'POST',credentials:'same-origin',
+             headers:{'X-CSRFToken':csrftoken()},body:fd})
+    .then(r=>r.ok?location.reload():r.text().then(t=>Promise.reject(t)))
+    .catch(showError)
+    .finally(()=>spin.classList.add('hidden'));
+});
+
+/*‑‑‑ открыть модалку attach ‑‑‑*/
+document.querySelectorAll('.attach-role-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.getElementById('form-icon-id').value=btn.dataset.iconId;
+    document.getElementById('attachRoleModal').checked=true;
+  });
+});
+
+/*‑‑‑ привязка роли ‑‑‑*/
+document.getElementById('attach-role-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  const icon_id=e.target.icon_id.value, role_id=e.target.role_id.value;
+  fetch(url,{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken()},
+    body:JSON.stringify({icon_id,role_id})})
+  .then(r=>r.ok?r.json():r.text().then(t=>Promise.reject(t)))
+  .then(d => {
+    if (!d.ok) return;
+
+    const row = document.querySelector(`[data-icon-id="${icon_id}"]`).closest('[data-row]');
+    const box = row.querySelector('.role-container');
+    box.querySelector('.no-roles')?.remove();
+    box.insertAdjacentHTML('beforeend', d.role_badge_html);
+
+    // Удалить роль из всех select
+    document.querySelectorAll('#role-select').forEach(select => {
+      const option = select.querySelector(`option[value="${role_id}"]`);
+      if (option) option.remove();
+    });
+
+    // Если select пуст — скрываем attach-кнопки
+    document.querySelectorAll('#role-select').forEach(select => {
+      if (select.options.length === 0) {
+        document.querySelectorAll('.attach-role-btn').forEach(btn => {
+          btn.closest('.tooltip')?.classList.add('hidden');
+        });
+      }
+    });
+
+    closeAttachModal();
+  })
+});
+
+/*‑‑‑ удаление роли ‑‑‑*/
+document.addEventListener('click',e=>{
+  const rm=e.target.closest('.remove-role-btn'); if(!rm) return;
+  const icon_id=rm.dataset.iconId, role_id=rm.dataset.roleId;
+  fetch(url,{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken()},
+    body:JSON.stringify({icon_id,role_id,remove:true})})
+  .then(r=>r.ok?r.json():r.text().then(t=>Promise.reject(t)))
+  .then(d => {
+    if (!d.ok) return;
+
+    const badge = rm.closest('.badge');
+    const box = badge.parentElement;
+    badge.remove();
+
+    // если это была последняя роль
+    if (!box.querySelector('.badge')) {
+      box.insertAdjacentHTML('beforeend', '<span class="text-xs opacity-50 no-roles">нет ролей</span>');
+    }
+
+    // добавляем обратно роль в <select>
+    document.querySelectorAll('#role-select').forEach(select => {
+      // избегаем дублирования
+      if (!select.querySelector(`option[value="${d.role_id}"]`)) {
+        select.insertAdjacentHTML('beforeend', `<option value="${d.role_id}">${d.role_name}</option>`);
+      }
+    });
+
+    // показать кнопки attach-role-btn (если они скрыты)
+    document.querySelectorAll('.attach-role-btn').forEach(btn => {
+      const container = btn.closest('.tooltip');
+      if (container && container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+      }
+    });
+  })
+});
+
+/*‑‑‑ удаление иконки (confirm modal) ‑‑‑*/
+let pendingDeleteId=null;
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('.delete-icon-btn'); if(!btn) return;
+  pendingDeleteId=btn.dataset.iconId;
+  document.getElementById('confirmDeleteModal').checked=true;
+});
+document.getElementById('confirm-delete-btn').addEventListener('click',()=>{
+  if(!pendingDeleteId) return;
+  fetch(url,{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken()},
+    body:JSON.stringify({icon_id:pendingDeleteId,delete_icon:true})})
+  .then(r=>r.ok?r.json():r.text().then(t=>Promise.reject(t)))
+  .then(d=>{
+    if(d.ok) document.querySelector(`[data-icon-id="${pendingDeleteId}"]`).closest('[data-row]').remove();
+    document.getElementById('confirmDeleteModal').checked=false;
+  })
+  .catch(err=>{document.getElementById('confirmDeleteModal').checked=false; showError(err);});
+});
+</script>
+{% endblock %}
+
+
+
+

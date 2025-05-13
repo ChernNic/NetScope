@@ -2,7 +2,7 @@ import django_filters
 from django.db import models
 from django import forms
 from django.utils.safestring import mark_safe
-
+from django.db.models import Q
 
 def generate_filter(model_class, exclude=None):
     exclude = set(exclude or [])
@@ -153,3 +153,105 @@ def generate_filter(model_class, exclude=None):
     )
 
     return AutoFilter
+
+
+def generate_history_filter(model_class, exclude=None):
+    exclude = set(exclude or [])
+    default_exclude = {"password", "last_login", "created_at", "updated_at"}
+    exclude.update(default_exclude)
+
+    declared_filters = {}
+
+    def apply_widget_attrs(filter_instance):
+        widget = filter_instance.field.widget
+        field_class = type(filter_instance.field)
+
+        classes = {
+            forms.CharField: "input input-bordered w-full",
+            forms.EmailField: "input input-bordered w-full",
+            forms.IntegerField: "input input-bordered w-full",
+            forms.ChoiceField: "select select-bordered w-full",
+            forms.BooleanField: "select select-bordered w-full",
+            forms.CheckboxInput: "select select-bordered w-full",
+            forms.DateField: "input input-bordered w-full",
+            forms.DateTimeField: "input input-bordered w-full",
+        }
+
+        css_class = next(
+            (cls for base, cls in classes.items() if isinstance(filter_instance.field, base)),
+            "input input-bordered w-full"
+        )
+        widget.attrs.update({
+            "class": css_class,
+            "placeholder": filter_instance.label or "",
+        })
+
+    # Кастомный фильтр по объекту
+    def object_repr_filter(qs, name, value):
+        q = Q()
+        for field in ("name", "description", "prefix"):
+            if hasattr(qs.model, field):
+                q |= Q(**{f"{field}__icontains": value})
+        return qs.filter(q)
+
+    declared_filters["object_repr"] = django_filters.CharFilter(
+        label="Объект (название)",
+        method=object_repr_filter
+    )
+
+    declared_filters["history_user"] = django_filters.CharFilter(
+        label="Пользователь (email)",
+        field_name="history_user__email",
+        lookup_expr="icontains"
+    )
+
+    declared_filters["history_date"] = django_filters.DateFromToRangeFilter(
+        label="Диапазон даты"
+    )
+
+    for f in declared_filters.values():
+        apply_widget_attrs(f)
+
+    def render_as_grid(self, submit_text="Найти", submit_class="btn btn-outline btn-sm"):
+        form = self.form
+        output = '<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">'
+        for field in form.visible_fields():
+            output += f'''
+                <div class="form-control filter-field" data-filter-field="{field.name}">
+                    <label class="label">
+                        <span class="label-text">{field.label}</span>
+                    </label>
+                    {field}
+                    {''.join(f'<p class="text-error">{e}</p>' for e in field.errors)}
+                    {f'<p class="text-sm text-gray-500 mt-1">{field.help_text}</p>' if field.help_text else ''}
+                </div>
+            '''
+        output += f'''
+            <div class="form-control col-span-full">
+              <div class="join">
+                <button type="submit" class="{submit_class} join-item">
+                  <i class="fas fa-search mr-1"></i> {submit_text}
+                </button>
+                <a href="?" class="btn btn-outline btn-sm join-item">
+                  <i class="fas fa-xmark mr-1"></i> Сбросить
+                </a>
+              </div>
+            </div>
+        </div>
+        '''
+        return mark_safe(output)
+
+    HistoryFilter = type(
+        f"{model_class.__name__}HistoryFilter",
+        (django_filters.FilterSet,),
+        {
+            **declared_filters,
+            "Meta": type("Meta", (), {
+                "model": model_class,
+                "fields": list(declared_filters.keys())  # Важно: только реальные поля!
+            }),
+            "render_as_grid": render_as_grid,
+        }
+    )
+
+    return HistoryFilter

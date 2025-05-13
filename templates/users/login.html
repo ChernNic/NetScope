@@ -13,6 +13,9 @@
         <p class="text-center mt-4">
             Нет аккаунта? <a href="{% url 'users:register' %}" class="text-primary">Зарегистрируйтесь</a>
         </p>
+        <p class="text-center mt-2">
+            Забыли пароль? <a href="{% url 'users:password_reset_request' %}" class="text-primary">Запросить смену пароля</a>
+        </p>
     </div>
 </div>
 {% endblock %}

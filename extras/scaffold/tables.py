@@ -1,6 +1,6 @@
 import django_tables2 as tables
 from django.utils.html import format_html
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 
 def generate_table(
     model_class,
@@ -9,7 +9,7 @@ def generate_table(
     field_labels=None,
     custom_columns=None,
     column_overrides=None,
-    order_by=None  # Добавлено
+    order_by=None  
 ):
     exclude = exclude or []
     field_labels = field_labels or {}
@@ -34,46 +34,60 @@ def generate_table(
         "Meta": Meta,
     }
 
-    # Если DetailView не задан, не добавляем колонку "Просмотр"
-    if custom_detail_view:
-        table_fields["view"] = tables.Column(verbose_name="Просмотр", accessor="pk", orderable=False)
-
     # Рендерим actions как иконки
     def render_actions(self, record):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+
         app = model_class._meta.app_label
         model = model_class.__name__.lower()
-        edit_url = reverse(f"{app}:{model}_edit", kwargs={"pk": record.pk})
-        delete_url = reverse(f"{app}:{model}_delete", kwargs={"pk": record.pk})
+
+        perms = {
+            "view": f"{app}.view_{model}",
+            "change": f"{app}.change_{model}",
+            "delete": f"{app}.delete_{model}",
+        }
+
+        try:
+            view_url = reverse(f"{app}:{model}_detail", kwargs={"pk": record.pk}) if user.has_perm(perms["view"]) else None
+        except NoReverseMatch:
+            view_url = None
+
+        try:
+            edit_url = reverse(f"{app}:{model}_edit", kwargs={"pk": record.pk}) if user.has_perm(perms["change"]) else None
+        except NoReverseMatch:
+            edit_url = None
+
+        try:
+            delete_url = reverse(f"{app}:{model}_delete", kwargs={"pk": record.pk}) if user.has_perm(perms["delete"]) else None
+        except NoReverseMatch:
+            delete_url = None
+
+        if not any([view_url, edit_url, delete_url]):
+            return ""
 
         return format_html(
             '''
             <div class="flex items-center gap-1 text-sm leading-tight">
-                <a href="{}" class="inline-flex items-center justify-center rounded p-1 hover:bg-base-200 transition" title="Редактировать">
-                    <i class="fas fa-pen-to-square text-primary text-xs"></i>
-                </a>
-                <a href="{}" class="inline-flex items-center justify-center rounded p-1 hover:bg-error/10 transition" title="Удалить">
-                    <i class="fas fa-trash text-error text-xs"></i>
-                </a>
+                {}
+                {}
+                {}
             </div>
             ''',
-            edit_url, delete_url
+            format_html(
+                '<a href="{}" class="inline-flex items-center justify-center rounded p-1 hover:bg-base-200 transition" title="Просмотр"><i class="fas fa-eye text-secondary text-xs"></i></a>',
+                view_url,
+            ) if view_url else '',
+            format_html(
+                '<a href="{}" class="inline-flex items-center justify-center rounded p-1 hover:bg-base-200 transition" title="Редактировать"><i class="fas fa-pen-to-square text-primary text-xs"></i></a>',
+                edit_url,
+            ) if edit_url else '',
+            format_html(
+                '<a href="{}" class="inline-flex items-center justify-center rounded p-1 hover:bg-error/10 transition" title="Удалить"><i class="fas fa-trash text-error text-xs"></i></a>',
+                delete_url,
+            ) if delete_url else '',
         )
-
-    # Рендерим ссылку на страницу подробного просмотра
-    def render_view(self, record):
-        if custom_detail_view:
-            app = model_class._meta.app_label
-            model = model_class.__name__.lower()
-            view_url = reverse(f"{app}:{model}_detail", kwargs={"pk": record.pk})
-            return format_html(
-                '''
-                <a href="{}" class="inline-flex items-center justify-center rounded p-1 hover:bg-base-200 transition" title="Просмотр">
-                    <i class="fas fa-eye text-primary text-xs"></i>
-                </a>
-                ''',
-                view_url
-            )
-        return ''  # Если нет DetailView, не показываем ссылку на просмотр
+        return actions
 
     # Добавляем field_labels
     for field in field_names:
@@ -107,13 +121,12 @@ def generate_table(
 
     # Добавляем метод render_actions
     table_fields["render_actions"] = render_actions
-    table_fields["render_view"] = render_view  # Добавляем колонку для просмотра (если DetailView присутствует)
 
     # Создаём таблицу
     TableClass = type(
         f"{model_class.__name__}Table",
         (tables.Table,),
-        table_fields
+        {**table_fields, "render_actions": render_actions}
     )
 
     return TableClass

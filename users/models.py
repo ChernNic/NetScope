@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import Group
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -23,7 +24,6 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 class User(AbstractUser, BaseModel):
-
     history = HistoricalRecords()
 
     email = models.EmailField(
@@ -70,3 +70,16 @@ class CustomGroup(Group):
         proxy = True
         verbose_name = "группа"
         verbose_name_plural = "группы"
+
+class PasswordResetRequest(models.Model):
+    email = models.EmailField(verbose_name="Электронная почта",null=True)
+    requested_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата запроса")
+    approved = models.BooleanField(default=False, verbose_name="Одобрено")
+    processed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата обработки")
+
+    def __str__(self):
+        return f"Запрос от {self.email}"
+
+    class Meta:
+        verbose_name = "запрос на смену пароля"
+        verbose_name_plural = "заявки на смену пароля"

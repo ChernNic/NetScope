@@ -13,7 +13,7 @@ class VLAN(models.Model):
         verbose_name_plural = "VLANы"
 
     def __str__(self):
-        return f"{self.vid} – {self.name}"
+        return f"{self.name}"
 
 
 class VRF(models.Model):

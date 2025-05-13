@@ -1,23 +1,51 @@
 {% extends "base.html" %}
-
 {% block title %}Главная | NetScope{% endblock %}
-{% block page_title %}Добро пожаловать в NetScope{% endblock %}
+{% load dict_utils %}
 
 {% block content %}
-  <div class="prose max-w-2xl">
-    <h2 class="text-2xl font-bold">Система NetScope</h2>
-    <p>
-      NetScope — это платформа для управления и мониторинга сетевой инфраструктуры:
-    </p>
-    <ul class="list-disc list-inside">
-      <li>Учёт и инвентаризация сетевых устройств</li>
-      <li>Мониторинг доступности и статусов</li>
-      <li>Визуализация топологии сети</li>
-      <li>IPAM: управление адресами, VLAN, VRF</li>
-      <li>Автоматическое сканирование сети</li>
-    </ul>
-    <p class="mt-4">
-      Используйте меню слева для перехода к нужному разделу.
-    </p>
-  </div>
+<div class="prose max-w-4xl m-10">
+  <h2 class="text-3xl font-bold mb-3">Добро пожаловать в NetScope</h2>
+  <p class="mb-3">
+    <strong>NetScope</strong> — это система каталогизации сетевой инфраструктуры. Она предназначена для отображения, документирования и визуализации:
+  </p>
+  <ul class="list-disc list-inside">
+    <li>Сетевых устройств и их соединений</li>
+    <li>IP-адресов, VLAN и VRF (IPAM)</li>
+    <li>Топологии сети в графическом виде</li>
+    <li>Ролей, прав пользователей и логирования</li>
+  </ul>
+</div>
+
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 px-10">
+  {% for section in menu %}
+    {% if section.visible and section.children %}
+    <div class="card bg-base-100 border border-base-300 shadow-sm pb-1">
+      <div class="card-body p-4">
+        <h3 class="text-base font-semibold mb-2 flex items-center gap-2">
+          <i class="{{ section.icon }}"></i> {{ section.label }}
+        </h3>
+        <ul class="space-y-1">
+          {% for item in section.children %}
+            {% if item.visible %}
+            <li>
+              <a href="{{ item.url }}"
+                 class="flex items-center gap-2 text-sm hover:underline text-ellipsis whitespace-nowrap overflow-hidden">
+                <i class="{{ item.icon }}"></i>
+                <span class="truncate max-w-[12rem]">{{ item.label }}</span>
+                {% with count=counts|dict_get:item.key %}
+                  {% if count %}
+                    <span class="badge badge-sm badge-outline">{{ count }}</span>
+                  {% endif %}
+                {% endwith %}
+              </a>
+            </li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
+</section>
+
 {% endblock %}

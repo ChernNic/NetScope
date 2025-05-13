@@ -1,10 +1,11 @@
 from django import forms
+from django.contrib.auth.forms import SetPasswordForm
 
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm, AuthenticationForm
 
-from extras.scaffold.base_forms import BaseForm
+from extras.scaffold.base_forms import BaseForm, BasePureForm
 
-from .models import User
+from .models import PasswordResetRequest, User
 
 class CustomUserCreationForm(UserCreationForm, BaseForm):
     username = forms.CharField(label="Имя пользователя")
@@ -37,3 +38,11 @@ class CustomAuthenticationForm(AuthenticationForm, BaseForm):
     class Meta:
         model = User
         fields = ('username', 'password')
+
+class PasswordResetRequestForm(BaseForm):
+    class Meta:
+        model = PasswordResetRequest
+        fields = ["email"]
+
+class AdminSetPasswordForm(SetPasswordForm, BasePureForm):
+    pass

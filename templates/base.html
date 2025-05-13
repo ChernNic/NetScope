@@ -40,8 +40,18 @@
       .table-compact .compact-actions .action-label {
         display: none !important;
       }
-      </style>
-  
+
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.3s ease-out;
+      }
+
+    </style>
+      
+    {% block extra_style %}{% endblock %}
 </head>
 <body>
 <div class="drawer lg:drawer-end">
@@ -137,12 +147,17 @@
         </div>
 
         <!-- Logout -->
-        <form action="{% url 'users:logout' %}" method="post">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-sm btn-ghost">
-            <i class="fa-solid fa-right-from-bracket"></i>
-          </button>
-        </form>
+        {% if user.is_authenticated %}
+          <div class="flex items-center gap-2 text-sm text-base-content font-semibold">
+            {{ user.first_name }} {{ user.last_name }}
+          </div>
+          <form action="{% url 'users:logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-ghost" title="Выход">
+              <i class="fa-solid fa-right-from-bracket"></i>
+            </button>
+          </form>
+        {% endif %}
       </div>
     </nav>
 
@@ -230,5 +245,27 @@
     document.getElementById("current-theme-icon").outerHTML = iconHtml;
   }
 </script>
+
+{% if messages %}
+<div class="fixed bottom-4 right-4 z-50 space-y-2" id="toast-container">
+  {% for message in messages %}
+    <div role="alert" class="alert alert-{{ message.tags }} shadow-lg animate-fade-in">
+      <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ message }}</span>
+    </div>
+  {% endfor %}
+</div>
+<script>
+  setTimeout(() => {
+    document.getElementById("toast-container")?.remove();
+  }, 4000);
+</script>
+{% endif %}
+
+{% block extra_script %}{% endblock %}
+
 </body>
 </html>

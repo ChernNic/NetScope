@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-center min-h-screen">
+  <div class="text-center">
+    <h1 class="text-6xl font-bold text-warning">500</h1>
+    <p class="text-lg mt-4">Внутренняя ошибка сервера. Попробуйте позже.</p>
+    {% if message %}
+    <p class="mt-2 text-sm text-gray-500 whitespace-pre-line">{{ message }}</p>
+    {% endif %}
+    <div class="mt-6">
+      <a href="/" class="btn btn-primary">Вернуться на главную</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

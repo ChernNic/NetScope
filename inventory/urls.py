@@ -1,6 +1,7 @@
 from django.urls import path
 from inventory.models import Organization, Building, Location, Device, Interface, Connection, DeviceRole, Manufacturer, DeviceType
 from extras.scaffold import generate_crud_views
+from inventory.views import *
 
 app_name = "inventory"
 
@@ -14,4 +15,5 @@ urlpatterns = [
     *generate_crud_views(DeviceRole, app_name="inventory", base_url="device_roles/", icon="fas fa-briefcase"),
     *generate_crud_views(Manufacturer, app_name="inventory", base_url="manufacturers/", icon="fas fa-industry"),
     *generate_crud_views(DeviceType, app_name="inventory", base_url="device_types/", icon="fas fa-laptop"),
+    path("role_icons/", RoleIconListView.as_view(), name="roleicon_list"),
 ]

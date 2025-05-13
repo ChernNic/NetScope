@@ -1,0 +1,95 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django stuff:
+*.log
+*.pot
+*.pyc
+*.pyo
+*.sqlite3
+db.sqlite3
+*.mo
+
+# If you use PostgreSQL and keep local dumps:
+*.sql
+*.dump
+
+# Media/uploads
+/media/
+media/
+*.webm
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.svg
+
+# Static files (collected via collectstatic)
+staticfiles/
+static/
+static_cdn/
+
+# Ignore environment variables and secrets
+.env
+.env.*
+secrets.json
+
+# Ignore IDE/editor-specific folders
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Ignore virtualenv
+venv/
+.venv/
+ENV/
+env/
+
+# macOS and Linux junk files
+.DS_Store
+Thumbs.db
+.cache/
+*.bak
+*.swp
+*.~lock.*
+
+# Pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Coverage reports
+htmlcov/
+coverage.xml
+*.cover
+*.py,cover
+.coverage
+.cache
+
+# Pytest
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Docker
+docker-compose.override.yml
+*.pid
+
+# Build system
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Celery / Supervisor / Gunicorn / uWSGI
+celerybeat-schedule
+*.pid
+*.sock
+
+# VS Code Jupyter
+.ipynb_checkpoints/

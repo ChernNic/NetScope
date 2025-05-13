@@ -3,7 +3,6 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 import re
 
-
 class BaseForm(forms.ModelForm):
     PASSWORD_PATTERN = r"(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
     PASSWORD_HINT = """
@@ -160,4 +159,77 @@ class BaseForm(forms.ModelForm):
         </script>
         """)
 
+        return mark_safe(output)
+
+
+class BasePureForm(forms.Form):
+    PASSWORD_PATTERN = r"(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+    PASSWORD_HINT = """
+        <p class="validator-hint hidden text-sm text-gray-500 mt-1" id="password-hint">
+          Пароль должен содержать минимум 8 символов, включая:
+          <br/>• хотя бы одну цифру
+          <br/>• хотя бы одну строчную букву
+          <br/>• хотя бы одну заглавную букву
+        </p>
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        field_classes = {
+            forms.CharField: "input input-bordered w-full",
+            forms.EmailField: "input input-bordered w-full",
+            forms.PasswordInput: "input input-bordered w-full",
+            forms.IntegerField: "input input-bordered w-full",
+            forms.ChoiceField: "select select-bordered w-full",
+            forms.BooleanField: "checkbox checkbox-primary",
+            forms.CheckboxInput: "checkbox checkbox-primary",
+            forms.Textarea: "textarea textarea-bordered w-full",
+        }
+
+        for field_name, field in self.fields.items():
+            widget = field.widget
+            if isinstance(widget, forms.CheckboxSelectMultiple):
+                widget.attrs["class"] = "checkbox checkbox-sm"
+                continue
+
+            # Присваиваем классы и плейсхолдер
+            widget.attrs["class"] = field_classes.get(type(field), "input input-bordered w-full")
+            widget.attrs["placeholder"] = field.label
+            widget.attrs.setdefault("required", False)
+
+            if isinstance(widget, forms.PasswordInput):
+                widget.attrs["pattern"] = self.PASSWORD_PATTERN
+                widget.attrs["title"] = "Пароль должен содержать минимум 8 символов, включая цифру, строчную и заглавную букву."
+
+
+    def render_password_field(self, field, show_hint=False):
+        help_text_html = f'<p class="text-sm text-gray-500 mt-1">{field.help_text}</p>' if field.help_text else ""
+        hint_html = self.PASSWORD_HINT if show_hint else ""
+        return mark_safe(f"""
+            <label class="fieldset-label">{field.label}</label>
+            {field}
+            {help_text_html}
+            {hint_html}
+        """)
+
+    def render_as_fieldset(self, legend=None, submit_text="Отправить", submit_class="btn btn-neutral mt-4"):
+        password_fields = [name for name, field in self.fields.items() if isinstance(field.widget, forms.PasswordInput)]
+        first_password_rendered = False
+
+        output = f'<fieldset class="fieldset w-full bg-base-200 border border-base-300 p-4 rounded-box">'
+        output += f'<legend class="fieldset-legend mb-2">{legend or "Форма"}</legend>'
+
+        for field in self:
+            if field.name in password_fields:
+                output += self.render_password_field(field, show_hint=not first_password_rendered)
+                first_password_rendered = True
+            else:
+                output += f'<label class="fieldset-label">{field.label}</label>{field}'
+                if field.help_text:
+                    output += f'<p class="text-sm text-gray-500 mt-1">{field.help_text}</p>'
+            if field.errors:
+                output += f'<p class="text-error">{field.errors}</p>'
+
+        output += f'<button type="submit" class="{submit_class}">{submit_text}</button></fieldset>'
         return mark_safe(output)

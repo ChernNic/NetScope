@@ -1,11 +1,15 @@
 {% extends "base.html" %}
 {% load render_table from django_tables2 %}
+{% load rules %}
 
 {% block title %}{{ model_verbose_name_plural|capfirst }}{% endblock %}
 
 {% block content %}
-<div class="space-y-6 px-6">
+{% has_perm app_label|add:'.add_'|add:model_name request.user as can_add %}
+{% has_perm app_label|add:'.delete_'|add:model_name request.user as can_delete %}
+{% has_perm app_label|add:'.view_historical'|add:model_name request.user as can_view_history %}
 
+<div class="space-y-6 px-6">
   <h1 class="text-3xl font-bold flex items-center gap-2">
     <i class="{{ model_icon }}"></i> {{ model_verbose_name_plural|capfirst }}
   </h1>
@@ -13,7 +17,7 @@
   <!-- Tabs -->
   <div class="tabs tabs-lift">
     <!-- Таблица -->
-    <input type="radio" name="view_tabs" class="tab" aria-label="Таблица" checked />
+    <input type="radio" name="view_tabs" id="tab-table" class="tab" aria-label="Таблица" checked />
     <div class="tab-content bg-base-100 border border-base-300 p-4 space-y-6">
 
       <form method="get">
@@ -29,12 +33,16 @@
         <!-- Кнопки -->
         <div class="flex justify-end items-end">
           <div class="join">
+            {% if can_delete %}
             <button type="submit" name="delete" class="btn btn-error btn-sm join-item">
               <i class="fas fa-trash mr-1"></i> Удалить выбранные
             </button>
+            {% endif %}
+            {% if can_add %}
             <a href="{{ add_url }}" class="btn btn-primary btn-sm join-item">
               <i class="fas fa-plus mr-1"></i> Добавить
             </a>
+            {% endif %}
           </div>
         </div>
 
@@ -42,12 +50,11 @@
         <div id="{{ table_id }}">
           {% render_table table %}
         </div>
-        
       </form>
     </div>
 
     <!-- Вкладка "Настройки" -->
-    <input type="radio" name="view_tabs" class="tab" aria-label="Настройки">
+    <input type="radio" name="view_tabs" id="tab-settings" class="tab" aria-label="Настройки">
     <div class="tab-content bg-base-100 border border-base-300 p-4 rounded-box space-y-6">
       <h2 class="font-bold text-lg">Настройки таблицы</h2>
 
@@ -56,7 +63,7 @@
         <label class="label mb-2">
           <span class="label-text">Режим таблицы</span>
         </label>
-        <select id="table-mode" class="select select-bordered w-full max-w-xs">
+        <select id="table-mode-{{ table_id }}" class="select select-bordered w-full max-w-xs">
           <option value="full">Расширенный</option>
           <option value="compact">Компактный</option>
         </select>
@@ -69,14 +76,14 @@
           {% for column in table.columns %}
             {% if column.name != "actions" and column.name != "select" %}
               <label class="cursor-pointer label gap-2">
-                <input type="checkbox" class="checkbox checkbox-sm toggle-column" data-column="{{ forloop.counter0 }}" checked />
+                <input type="checkbox" class="checkbox checkbox-sm toggle-column-{{ table_id }}" data-column="{{ forloop.counter0 }}" checked />
                 <span class="label-text">{{ column.header }}</span>
               </label>
             {% endif %}
           {% endfor %}
         </div>
       </div>
-      
+
       <!-- Настройка фильтрации -->
       <h2 class="font-bold text-lg mt-15">Настройки фильтра</h2>
       <div>
@@ -85,7 +92,7 @@
           {% for field in filter.form.visible_fields %}
             <label class="cursor-pointer label gap-2">
               <input type="checkbox"
-                    class="checkbox checkbox-sm toggle-filter-field"
+                    class="checkbox checkbox-sm toggle-filter-field-{{ table_id }}"
                     data-field="{{ field.name }}"
                     checked />
               <span class="label-text">{{ field.label }}</span>
@@ -96,109 +103,127 @@
     </div>
 
     <!-- Вкладка "История изменений" -->
-    <input type="radio" name="view_tabs" class="tab" aria-label="История">
+    {% if can_view_history %}
+    <input type="radio" name="view_tabs" id="tab-history" class="tab" aria-label="История">
     <div class="tab-content bg-base-100 border border-base-300 p-4 space-y-6" id="history-tab">
       <h2 class="font-bold text-lg">История изменений</h2>
       {% if history_enabled %}
-        <div id="history-table">
+      <form method="get" class="space-y-4">
+        <div id="history-filters">
+          {{ history_filter.render_as_grid }}
+        </div>
+      </form>
+      
+        <div id="{{ history_table_id }}">
           {% render_table history_table %}
         </div>
       {% else %}
         <p class="text-gray-500">Для этой модели история не подключена.</p>
       {% endif %}
-</div>
-
-    
+    </div>
+    {% endif %}
   </div>
 </div>
 
 <!-- JS -->
 <script>
-const STORAGE_KEY_COLUMNS = "visible_columns_{{ table_id }}";
-const FILTER_STORAGE_KEY = "visible_filter_fields_{{ table_id }}";
-const STORAGE_KEY_MODE = "table_mode_{{ table_id }}";
+const TAB_STORAGE_KEY = "active_tab";
 
+const tableId = "{{ table_id }}";
+const STORAGE_KEY_COLUMNS = "visible_columns_" + tableId;
+const FILTER_STORAGE_KEY = "visible_filter_fields_" + tableId;
+const STORAGE_KEY_MODE = "table_mode_" + tableId;
 
-  function applyColumnPreferences() {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY_COLUMNS) || "[]");
-    document.querySelectorAll(".toggle-column").forEach((checkbox, idx) => {
-      const visible = stored.length ? stored.includes(idx) : true;
-      checkbox.checked = visible;
-      const colIndex = idx + 1;
-      const display = visible ? "" : "none";
-      document.querySelectorAll(`table td:nth-child(${colIndex}), table th:nth-child(${colIndex})`)
-        .forEach(el => el.style.display = display);
-    });
-  }
+function applyColumnPreferences() {
+  const stored = JSON.parse(localStorage.getItem(STORAGE_KEY_COLUMNS) || "[]");
+  document.querySelectorAll(".toggle-column-" + tableId).forEach((checkbox, idx) => {
+    const visible = stored.length ? stored.includes(idx) : true;
+    checkbox.checked = visible;
+    const colIndex = idx + 1;
+    const display = visible ? "" : "none";
+    document.querySelectorAll(`#${tableId} td:nth-child(${colIndex}), #${tableId} th:nth-child(${colIndex})`)
+      .forEach(el => el.style.display = display);
+  });
+}
 
-  function saveColumnPreferences() {
-    const selected = [];
-    document.querySelectorAll(".toggle-column").forEach((checkbox, idx) => {
-      if (checkbox.checked) selected.push(idx);
-    });
-    localStorage.setItem(STORAGE_KEY_COLUMNS, JSON.stringify(selected));
-  }
+function saveColumnPreferences() {
+  const selected = [];
+  document.querySelectorAll(".toggle-column-" + tableId).forEach((checkbox, idx) => {
+    if (checkbox.checked) selected.push(idx);
+  });
+  localStorage.setItem(STORAGE_KEY_COLUMNS, JSON.stringify(selected));
+}
 
+function applyFilterPreferences() {
+  const stored = JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY) || "[]");
+  document.querySelectorAll(`#${tableId} .filter-field`).forEach(el => {
+    const field = el.dataset.filterField;
+    const visible = stored.length ? stored.includes(field) : true;
+    el.style.display = visible ? "" : "none";
+  });
+  document.querySelectorAll(".toggle-filter-field-" + tableId).forEach(cb => {
+    const field = cb.dataset.field;
+    cb.checked = stored.length ? stored.includes(field) : true;
+  });
+}
 
-  function applyFilterPreferences() {
-    const stored = JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY) || "[]");
-    document.querySelectorAll(".filter-field").forEach(el => {
-      const field = el.dataset.filterField;
-      const visible = stored.length ? stored.includes(field) : true;
-      el.style.display = visible ? "" : "none";
-    });
-    document.querySelectorAll(".toggle-filter-field").forEach(cb => {
-      const field = cb.dataset.field;
-      cb.checked = stored.length ? stored.includes(field) : true;
-    });
-  }
+function saveFilterPreferences() {
+  const selected = [];
+  document.querySelectorAll(".toggle-filter-field-" + tableId).forEach(cb => {
+    if (cb.checked) selected.push(cb.dataset.field);
+  });
+  localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selected));
+}
 
-  function saveFilterPreferences() {
-    const selected = [];
-    document.querySelectorAll(".toggle-filter-field").forEach(cb => {
-      if (cb.checked) selected.push(cb.dataset.field);
-    });
-    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selected));
-  }
-
-
-  function applyMode(mode) {
-  const table = document.querySelector("table");
+function applyMode(mode) {
+  const table = document.querySelector(`#${tableId} table`);
+  if (!table) return;
   table.classList.remove("table-sm", "table-compact", "text-sm", "leading-tight");
-
   if (mode === "compact") {
     table.classList.add("table-sm", "table-compact", "text-sm", "leading-tight");
   }
-
   localStorage.setItem(STORAGE_KEY_MODE, mode);
 }
 
-
-  document.addEventListener("DOMContentLoaded", function () {
-    applyColumnPreferences();
-    document.querySelectorAll(".toggle-column").forEach(checkbox => {
-      checkbox.addEventListener("change", () => {
-        saveColumnPreferences();
-        applyColumnPreferences();
-      });
+document.addEventListener("DOMContentLoaded", function () {
+  applyColumnPreferences();
+  document.querySelectorAll(".toggle-column-" + tableId).forEach(checkbox => {
+    checkbox.addEventListener("change", () => {
+      saveColumnPreferences();
+      applyColumnPreferences();
     });
-
-    applyFilterPreferences();
-    document.querySelectorAll(".toggle-filter-field").forEach(cb => {
-      cb.addEventListener("change", () => {
-        saveFilterPreferences();
-        applyFilterPreferences();
-      });
-    });
-
-    const modeSelect = document.getElementById("table-mode");
-    const savedMode = localStorage.getItem(STORAGE_KEY_MODE) || "full";
-    modeSelect.value = savedMode;
-    applyMode(savedMode);
-    modeSelect.addEventListener("change", () => applyMode(modeSelect.value));
-
-    
   });
-  
+
+  applyFilterPreferences();
+  document.querySelectorAll(".toggle-filter-field-" + tableId).forEach(cb => {
+    cb.addEventListener("change", () => {
+      saveFilterPreferences();
+      applyFilterPreferences();
+    });
+  });
+
+  const modeSelect = document.getElementById("table-mode-" + tableId);
+  const savedMode = localStorage.getItem(STORAGE_KEY_MODE) || "full";
+  modeSelect.value = savedMode;
+  applyMode(savedMode);
+  modeSelect.addEventListener("change", () => applyMode(modeSelect.value));
+});
+
+document.querySelectorAll("input[name='view_tabs']").forEach(tab => {
+  tab.addEventListener("change", () => {
+    if (tab.checked) {
+      localStorage.setItem(TAB_STORAGE_KEY, tab.id);
+    }
+  });
+});
+
+const savedTabId = localStorage.getItem(TAB_STORAGE_KEY);
+if (savedTabId) {
+  const tabInput = document.getElementById(savedTabId);
+  if (tabInput) {
+    tabInput.checked = true;
+  }
+}
+
 </script>
 {% endblock %}
