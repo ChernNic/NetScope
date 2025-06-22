@@ -8,8 +8,10 @@ from django.http import JsonResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views import View
+from django.views.generic import DetailView
+from inventory.models import Device, RoleIcon, DeviceRole
+from extras.scaffold.views import AutoDetailView
 
-from inventory.models import RoleIcon, DeviceRole
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -132,3 +134,43 @@ class RoleIconListView(View):
             return JsonResponse({"ok": True})
 
         return HttpResponseBadRequest("Неизвестный формат запроса")
+    
+
+class DeviceDetailView(AutoDetailView):
+    model = Device
+    context_object_name = "object"
+
+    def get_extra_tabs(self):
+        return [
+            {
+                "id": "tab-console",
+                "label": "Консоль",
+                "template": "inventory/partials/console_tab.html"
+            },
+            {
+                "id": "tab-interfaces",
+                "label": "Интерфейсы",
+                "template": "inventory/partials/interfaces_tab.html"
+            },
+        ]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        device = self.get_object()
+
+        context["extra_tabs"] = self.get_extra_tabs()
+
+        if hasattr(device, "access"):
+            context["terminal_ws_url"] = f"/ws/terminal/{device.id}/"
+
+        context["interfaces"] = device.interfaces.all()
+        return context
+
+
+
+from django.views.generic import DetailView
+from inventory.models import Device
+
+class EmptyView(DetailView):
+    model = Device
+    template_name = "empty.html"

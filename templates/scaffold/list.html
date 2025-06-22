@@ -31,20 +31,34 @@
         {% csrf_token %}
 
         <!-- Кнопки -->
-        <div class="flex justify-end items-end">
-          <div class="join">
+        <div class="flex justify-end items-end gap-4 mt-4">
+
+          <!-- Группа: Импорт / Экспорт -->
+          <div class="join space-x-0">
+            <a href="?export=json" class="btn btn-sm btn-outline join-item">
+              <i class="fas fa-file-export mr-1"></i> Экспорт
+            </a>
+            <label for="import_modal" class="btn btn-sm btn-outline join-item cursor-pointer">
+              <i class="fas fa-file-import mr-1"></i> Импорт
+            </label>
+          </div>
+
+          <!-- Группа: Удалить / Добавить -->
+          <div class="join space-x-0">
             {% if can_delete %}
             <button type="submit" name="delete" class="btn btn-error btn-sm join-item">
-              <i class="fas fa-trash mr-1"></i> Удалить выбранные
+              <i class="fas fa-trash-alt mr-1"></i> Удалить выбранные
             </button>
             {% endif %}
-            {% if can_add %}
+            {% if can_add and enable_create %}
             <a href="{{ add_url }}" class="btn btn-primary btn-sm join-item">
               <i class="fas fa-plus mr-1"></i> Добавить
             </a>
             {% endif %}
           </div>
+
         </div>
+
 
         <!-- Таблица -->
         <div id="{{ table_id }}">
@@ -52,6 +66,30 @@
         </div>
       </form>
     </div>
+
+    <!-- Модальное окно импорта -->
+    <input type="checkbox" id="import_modal" class="modal-toggle" />
+    <div class="modal" role="dialog">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Импорт JSON-файла</h3>
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="file" name="json_file" class="file-input file-input-bordered w-full mb-4" required>
+          <div class="modal-action">
+            <label for="import_modal" class="btn btn-outline">Отмена</label>
+            <button type="submit" name="import_json" class="btn btn-primary">Загрузить</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% for tab in template_tabs %}
+      <input type="radio" name="view_tabs" id="tab-{{ tab.id }}" class="tab" aria-label="{{ tab.label }}">
+      <div class="tab-content bg-base-100 border border-base-300 p-4 space-y-6">
+        <h2 class="font-bold text-lg">{{ tab.label }}</h2>
+        {% include tab.template %}
+      </div>
+    {% endfor %}
 
     <!-- Вкладка "Настройки" -->
     <input type="radio" name="view_tabs" id="tab-settings" class="tab" aria-label="Настройки">
@@ -122,108 +160,109 @@
       {% endif %}
     </div>
     {% endif %}
+
   </div>
 </div>
 
 <!-- JS -->
 <script>
-const TAB_STORAGE_KEY = "active_tab";
+  const TAB_STORAGE_KEY = "active_tab";
 
-const tableId = "{{ table_id }}";
-const STORAGE_KEY_COLUMNS = "visible_columns_" + tableId;
-const FILTER_STORAGE_KEY = "visible_filter_fields_" + tableId;
-const STORAGE_KEY_MODE = "table_mode_" + tableId;
+  const tableId = "{{ table_id }}";
+  const STORAGE_KEY_COLUMNS = "visible_columns_" + tableId;
+  const FILTER_STORAGE_KEY = "visible_filter_fields_" + tableId;
+  const STORAGE_KEY_MODE = "table_mode_" + tableId;
 
-function applyColumnPreferences() {
-  const stored = JSON.parse(localStorage.getItem(STORAGE_KEY_COLUMNS) || "[]");
-  document.querySelectorAll(".toggle-column-" + tableId).forEach((checkbox, idx) => {
-    const visible = stored.length ? stored.includes(idx) : true;
-    checkbox.checked = visible;
-    const colIndex = idx + 1;
-    const display = visible ? "" : "none";
-    document.querySelectorAll(`#${tableId} td:nth-child(${colIndex}), #${tableId} th:nth-child(${colIndex})`)
-      .forEach(el => el.style.display = display);
-  });
-}
-
-function saveColumnPreferences() {
-  const selected = [];
-  document.querySelectorAll(".toggle-column-" + tableId).forEach((checkbox, idx) => {
-    if (checkbox.checked) selected.push(idx);
-  });
-  localStorage.setItem(STORAGE_KEY_COLUMNS, JSON.stringify(selected));
-}
-
-function applyFilterPreferences() {
-  const stored = JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY) || "[]");
-  document.querySelectorAll(`#${tableId} .filter-field`).forEach(el => {
-    const field = el.dataset.filterField;
-    const visible = stored.length ? stored.includes(field) : true;
-    el.style.display = visible ? "" : "none";
-  });
-  document.querySelectorAll(".toggle-filter-field-" + tableId).forEach(cb => {
-    const field = cb.dataset.field;
-    cb.checked = stored.length ? stored.includes(field) : true;
-  });
-}
-
-function saveFilterPreferences() {
-  const selected = [];
-  document.querySelectorAll(".toggle-filter-field-" + tableId).forEach(cb => {
-    if (cb.checked) selected.push(cb.dataset.field);
-  });
-  localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selected));
-}
-
-function applyMode(mode) {
-  const table = document.querySelector(`#${tableId} table`);
-  if (!table) return;
-  table.classList.remove("table-sm", "table-compact", "text-sm", "leading-tight");
-  if (mode === "compact") {
-    table.classList.add("table-sm", "table-compact", "text-sm", "leading-tight");
+  function applyColumnPreferences() {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY_COLUMNS) || "[]");
+    document.querySelectorAll(".toggle-column-" + tableId).forEach((checkbox, idx) => {
+      const visible = stored.length ? stored.includes(idx) : true;
+      checkbox.checked = visible;
+      const colIndex = idx + 1;
+      const display = visible ? "" : "none";
+      document.querySelectorAll(`#${tableId} td:nth-child(${colIndex}), #${tableId} th:nth-child(${colIndex})`)
+        .forEach(el => el.style.display = display);
+    });
   }
-  localStorage.setItem(STORAGE_KEY_MODE, mode);
-}
 
-document.addEventListener("DOMContentLoaded", function () {
-  applyColumnPreferences();
-  document.querySelectorAll(".toggle-column-" + tableId).forEach(checkbox => {
-    checkbox.addEventListener("change", () => {
-      saveColumnPreferences();
-      applyColumnPreferences();
+  function saveColumnPreferences() {
+    const selected = [];
+    document.querySelectorAll(".toggle-column-" + tableId).forEach((checkbox, idx) => {
+      if (checkbox.checked) selected.push(idx);
     });
-  });
+    localStorage.setItem(STORAGE_KEY_COLUMNS, JSON.stringify(selected));
+  }
 
-  applyFilterPreferences();
-  document.querySelectorAll(".toggle-filter-field-" + tableId).forEach(cb => {
-    cb.addEventListener("change", () => {
-      saveFilterPreferences();
-      applyFilterPreferences();
+  function applyFilterPreferences() {
+    const stored = JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY) || "[]");
+    document.querySelectorAll(`#${tableId} .filter-field`).forEach(el => {
+      const field = el.dataset.filterField;
+      const visible = stored.length ? stored.includes(field) : true;
+      el.style.display = visible ? "" : "none";
     });
-  });
+    document.querySelectorAll(".toggle-filter-field-" + tableId).forEach(cb => {
+      const field = cb.dataset.field;
+      cb.checked = stored.length ? stored.includes(field) : true;
+    });
+  }
 
-  const modeSelect = document.getElementById("table-mode-" + tableId);
-  const savedMode = localStorage.getItem(STORAGE_KEY_MODE) || "full";
-  modeSelect.value = savedMode;
-  applyMode(savedMode);
-  modeSelect.addEventListener("change", () => applyMode(modeSelect.value));
-});
+  function saveFilterPreferences() {
+    const selected = [];
+    document.querySelectorAll(".toggle-filter-field-" + tableId).forEach(cb => {
+      if (cb.checked) selected.push(cb.dataset.field);
+    });
+    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selected));
+  }
 
-document.querySelectorAll("input[name='view_tabs']").forEach(tab => {
-  tab.addEventListener("change", () => {
-    if (tab.checked) {
-      localStorage.setItem(TAB_STORAGE_KEY, tab.id);
+  function applyMode(mode) {
+    const table = document.querySelector(`#${tableId} table`);
+    if (!table) return;
+    table.classList.remove("table-sm", "table-compact", "text-sm", "leading-tight");
+    if (mode === "compact") {
+      table.classList.add("table-sm", "table-compact", "text-sm", "leading-tight");
     }
-  });
-});
-
-const savedTabId = localStorage.getItem(TAB_STORAGE_KEY);
-if (savedTabId) {
-  const tabInput = document.getElementById(savedTabId);
-  if (tabInput) {
-    tabInput.checked = true;
+    localStorage.setItem(STORAGE_KEY_MODE, mode);
   }
-}
+
+  document.addEventListener("DOMContentLoaded", function () {
+    applyColumnPreferences();
+    document.querySelectorAll(".toggle-column-" + tableId).forEach(checkbox => {
+      checkbox.addEventListener("change", () => {
+        saveColumnPreferences();
+        applyColumnPreferences();
+      });
+    });
+
+    applyFilterPreferences();
+    document.querySelectorAll(".toggle-filter-field-" + tableId).forEach(cb => {
+      cb.addEventListener("change", () => {
+        saveFilterPreferences();
+        applyFilterPreferences();
+      });
+    });
+
+    const modeSelect = document.getElementById("table-mode-" + tableId);
+    const savedMode = localStorage.getItem(STORAGE_KEY_MODE) || "full";
+    modeSelect.value = savedMode;
+    applyMode(savedMode);
+    modeSelect.addEventListener("change", () => applyMode(modeSelect.value));
+  });
+
+  document.querySelectorAll("input[name='view_tabs']").forEach(tab => {
+    tab.addEventListener("change", () => {
+      if (tab.checked) {
+        localStorage.setItem(TAB_STORAGE_KEY, tab.id);
+      }
+    });
+  });
+
+  const savedTabId = localStorage.getItem(TAB_STORAGE_KEY);
+  if (savedTabId) {
+    const tabInput = document.getElementById(savedTabId);
+    if (tabInput) {
+      tabInput.checked = true;
+    }
+  }
 
 </script>
 {% endblock %}

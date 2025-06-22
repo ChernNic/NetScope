@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-o)62tg%oz&)vhkv^hx=g(201@k-8a)ju#b%wr4lt__rf6jcaiu'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
@@ -45,9 +45,11 @@ INSTALLED_APPS = [
     'ipam',
     'inventory',    
     'topology',
+    'terminal',
     'users.apps.UsersConfig', 
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+    'channels', 
     'rules',
 ]
 
@@ -88,8 +90,7 @@ TEMPLATES[0]['OPTIONS']['context_processors'] += [
     'NetScope.common.context_processors.menu_context',
 ]
 
-WSGI_APPLICATION = 'NetScope.wsgi.application'
-
+ASGI_APPLICATION = "NetScope.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -105,7 +106,11 @@ DATABASES = {
     }
 }
 
-
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -157,7 +162,7 @@ AUTH_USER_MODEL = 'users.User'
 
 LOGIN_URL = "/login/"
 
-LOGIN_REDIRECT_URL = "/"  # Куда перенаправлять после успешного входа
+LOGIN_REDIRECT_URL = "/" 
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -167,8 +172,6 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework.renderers.JSONRenderer',
-    ) if not DEBUG else (
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     )
@@ -188,4 +191,5 @@ SIMPLE_JWT = {
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 

@@ -4,8 +4,9 @@ from inventory import models as inv
 from ipam import models as ipam
 from users.models import User
 from topology.models import NetworkMap
+from django.contrib.auth.decorators import login_required
 
-
+@login_required
 def home_dashboard(request):
     user = request.user
 

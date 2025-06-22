@@ -4,7 +4,7 @@ from simple_history.models import HistoricalRecords
 from django.core.exceptions import ObjectDoesNotExist
 from django.templatetags.static import static
 
-from NetScope import settings
+from django.conf import settings
 
 class Organization(models.Model):
     name = models.CharField(max_length=100, verbose_name="Название организации")

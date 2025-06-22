@@ -1,0 +1,42 @@
+<h2 class="text-xl font-semibold mb-4">Интерфейсы устройства</h2>
+
+<div class="mb-4">
+  <a href="{% url 'inventory:interface_add' %}?device={{ object.pk }}" class="btn btn-sm btn-primary">
+    <i class="fas fa-plus mr-1"></i> Добавить интерфейс
+  </a>
+</div>
+
+{% if interfaces %}
+  <div class="overflow-x-auto">
+    <table class="table w-full">
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>IP-адрес</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for iface in interfaces %}
+        <tr>
+          <td>
+            <a href="{% url 'inventory:interface_detail' iface.pk %}" class="link link-hover link-primary font-mono">
+              {{ iface.name }}
+            </a>
+          </td>
+          <td class="font-mono">
+            {% if iface.ip_address %}{{ iface.ip_address }}{% else %}<span class="text-gray-400">—</span>{% endif %}
+          </td>
+          <td>
+            <a href="{% url 'inventory:interface_edit' iface.pk %}" class="btn btn-xs btn-ghost text-primary">
+              <i class="fas fa-pen"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="text-gray-500">Нет интерфейсов для этого устройства.</p>
+{% endif %}

@@ -32,6 +32,7 @@ urlpatterns = [
     path('', include('ipam.urls')),
     path('', include('topology.urls')),
     path("", home_dashboard, name="home"),
+    path("terminal/", include(("terminal.urls", "terminal"), namespace="terminal")),
     path("api/", include("api.urls")),
 ]
 
